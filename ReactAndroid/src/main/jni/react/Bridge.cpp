@@ -66,6 +66,10 @@ public:
     m_jsExecutor->handleMemoryPressureCritical();
   }
 
+  void* getJavaScriptContext() {
+    return m_jsExecutor->getJavaScriptContext();
+  }
+
 private:
   std::unique_ptr<JSExecutor> m_jsExecutor;
   Bridge::Callback m_callback;
@@ -124,6 +128,10 @@ void Bridge::invokeCallback(const double callbackId, const folly::dynamic& argum
 
 void Bridge::setGlobalVariable(const std::string& propName, const std::string& jsonValue) {
   m_threadState->setGlobalVariable(propName, jsonValue);
+}
+
+void* Bridge::getJavaScriptContext() {
+  return m_threadState->getJavaScriptContext();
 }
 
 bool Bridge::supportsProfiling() {
