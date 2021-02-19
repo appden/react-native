@@ -87,6 +87,9 @@
 #endif
   RCTBackedTextFieldDelegateAdapter *_textInputDelegateAdapter;
   NSDictionary<NSAttributedStringKey, id> *_defaultTextAttributes;
+#if TARGET_OS_OSX // [TODO(macOS ISS#2323203)
+  id _keyDownEventMonitor;
+#endif // ]TODO(macOS ISS#2323203)
 }
 
 #if TARGET_OS_OSX // [TODO(macOS ISS#2323203)
@@ -387,6 +390,10 @@
   if ([delegate respondsToSelector:@selector(textFieldEndEditing:)]) {
     [delegate textFieldEndEditing:self];
   }
+  if (_keyDownEventMonitor) {
+    [NSEvent removeMonitor:_keyDownEventMonitor];
+    _keyDownEventMonitor = nil;
+  }
 }
   
 - (void)textViewDidChangeSelection:(NSNotification *)notification
@@ -441,6 +448,13 @@
       NSRect visibleRect = [[scrollView documentView] convertRect:self.frame fromView:self];
       [[scrollView documentView] scrollRectToVisible:visibleRect];
     }
+
+    // The NSTextField holds a privately owned NSTextView that handles keyDown events.
+    // Therefore, since we might want to intercept keyDown, we must use an event monitor.
+    __weak __typeof(self) weakSelf = self;
+    _keyDownEventMonitor = [NSEvent addLocalMonitorForEventsMatchingMask:NSKeyDownMask handler:^(NSEvent *event) {
+      return [weakSelf.textInputDelegate textInputShouldHandleKeyEvent:event] ? event : nil;
+    }];
   }
   return isFirstResponder;
 }
@@ -523,6 +537,12 @@
   id<RCTBackedTextInputDelegate> textInputDelegate = [self textInputDelegate];
   if ([textInputDelegate textInputShouldHandleDeleteBackward:self]) {
     [super deleteBackward];
+  }
+}
+#else
+- (void)keyUp:(NSEvent *)event {
+  if ([self.textInputDelegate textInputShouldHandleKeyEvent:event]) {
+    [super keyUp:event];
   }
 }
 #endif // ]TODO(OSS Candidate ISS#2710739)
